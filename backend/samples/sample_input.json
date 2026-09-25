@@ -1,0 +1,38 @@
+{
+  "name": "SE Computer - Sem III",
+  "working_days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  "periods_per_day": 7,
+  "break_after_periods": [4],
+  "subjects": [
+    {"name": "Discrete Mathematics", "type": "THEORY", "weekly_workload": 4},
+    {"name": "Data Structures", "type": "THEORY", "weekly_workload": 4},
+    {"name": "Computer Organization", "type": "THEORY", "weekly_workload": 3},
+    {"name": "OOP with Java", "type": "THEORY", "weekly_workload": 3},
+    {"name": "Digital Electronics", "type": "THEORY", "weekly_workload": 3},
+    {"name": "Economics", "type": "THEORY", "weekly_workload": 2},
+    {"name": "DS Lab", "type": "LAB", "weekly_workload": 4, "block_length": 2},
+    {"name": "Java Lab", "type": "LAB", "weekly_workload": 2, "block_length": 2},
+    {"name": "DE Lab", "type": "LAB", "weekly_workload": 2, "block_length": 2}
+  ],
+  "rooms": [
+    {"name": "Room 101", "type": "CLASSROOM"},
+    {"name": "Room 102", "type": "CLASSROOM"},
+    {"name": "Room 103", "type": "CLASSROOM"},
+    {"name": "Room 104", "type": "CLASSROOM"},
+    {"name": "Lab 1", "type": "LAB"},
+    {"name": "Lab 2", "type": "LAB"}
+  ],
+  "teachers": [
+    {"name": "Prof. Kulkarni", "subjects": ["Discrete Mathematics"]},
+    {"name": "Prof. Deshmukh", "subjects": ["Discrete Mathematics", "Economics"]},
+    {"name": "Prof. Joshi", "subjects": ["Data Structures", "DS Lab"]},
+    {"name": "Prof. Patil", "subjects": ["Data Structures", "DS Lab"]},
+    {"name": "Prof. Shinde", "subjects": ["Computer Organization", "Digital Electronics"]},
+    {"name": "Prof. Gokhale", "subjects": ["Digital Electronics", "DE Lab"]},
+    {"name": "Prof. Mehta", "subjects": ["OOP with Java", "Java Lab"]},
+    {"name": "Prof. Rao", "subjects": ["OOP with Java", "Java Lab", "Computer Organization"]},
+    {"name": "Prof. Iyer", "subjects": ["Economics", "DS Lab", "DE Lab"]}
+  ],
+  "divisions": [{"name": "SE-A"}, {"name": "SE-B"}, {"name": "SE-C"}, {"name": "SE-D"}],
+  "options": {"seed": 7, "time_limit_seconds": 20}
+}
