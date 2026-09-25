@@ -1,188 +1,362 @@
 # College Timetable Generator (v0.1)
 
-React (Vite) frontend · FastAPI backend · Supabase (Postgres) storage.
+A constraint-aware college timetable generator built with React, FastAPI, and optional Supabase/Postgres persistence.
 
-On one page you enter the working days, periods per day and lunch break, then:
+## Overview
 
-- subjects (periods per week, and whether each is a lab)
-- which subjects each teacher can teach
-- how many divisions, classrooms and labs there are
+The application helps an administrator configure a weekly college timetable and generate a schedule for multiple divisions, subjects, faculty members, classrooms, and laboratories.
 
-The app generates a clash-free timetable. One dropdown switches the view
-between any division, teacher or room.
+The application can generate timetables without Supabase. When Supabase is configured, generated timetables can also be saved and retrieved.
 
-**Design write-up:** see [APPROACH.md](APPROACH.md).
+## Features
 
-## Rules the generator never breaks
+- Configure working days and time slots.
+- Configure lunch or break periods.
+- Add subjects and weekly workload.
+- Mark subjects as theory or laboratory subjects.
+- Define which subjects each teacher can teach.
+- Configure the number of divisions, classrooms, and laboratories.
+- Generate a weekly timetable.
+- Prevent division, teacher, and room conflicts.
+- Assign laboratory subjects only to laboratories.
+- Assign theory subjects only to classrooms.
+- Schedule lab blocks as consecutive periods when configured.
+- View the timetable by division, teacher, or room.
+- Validate impossible or incomplete input.
+- Save and retrieve generated timetables when Supabase is configured.
 
-| Rule | Where it is enforced |
-|---|---|
-| A division has one class per period | solver (bitmask per division) + verifier + DB unique key |
-| A teacher is in one place per period | solver (bitmask per teacher) + verifier + DB unique key |
-| A room hosts one class per period | solver (bitmask per room) + verifier + DB unique key |
-| Lab subjects only in laboratories, theory only in classrooms | solver picks rooms by type + verifier |
-| Every subject gets exactly its weekly workload | solver places exactly `workload / block` sessions + verifier |
-| No dead end near the end | prechecks + most-constrained-first + forward checking + repair (below) |
-| Lab blocks: consecutive periods, same room, never across the break | solver + verifier |
+## Scope of v0.1
 
-### How it avoids getting stuck at the end
+This prototype focuses on weekly timetable generation and hard-constraint validation.
 
-1. **Prechecks** (`validator.py`) reject impossible inputs before any search, with a
-   plain-English reason: a division needing more periods than the week has, a
-   subject nobody can teach, teachers over capacity, too few labs for the lab blocks, etc.
-2. **Most-constrained first**: at every step the solver schedules the subject with
-   the least slack (possible slots minus sessions still needed), so scarce labs and
-   busy teachers are placed while there is still room.
-3. **Forward checking**: after every placement it re-checks that every unfinished
-   subject, division, teacher and room type can still fit what is left. If not, it
-   undoes that choice at once instead of discovering the dead end later.
-4. **Restarts + conflict-directed repair**: if backtracking runs long, it switches to
-   a repair search that never tolerates a clash, only moves sessions around.
-5. **Independent verifier** (`verifier.py`) re-checks the finished timetable from
-   scratch. If it ever found a problem, the API would not return the timetable as valid.
+The following are outside the scope of v0.1:
 
-If no timetable exists, the API says so and names the bottleneck ("Labs 100% booked";
-"Teacher T2 100% booked") instead of returning a broken timetable.
+- Authentication and user management.
+- Teacher unavailable-slot preferences.
+- Manual drag-and-drop editing.
+- Lab batches such as B1/B2/B3.
+- Excel or PDF export.
+- Advanced timetable optimization.
 
-## Project layout
+These can be added in a future version.
 
+## Technology Stack
+
+- Frontend: React with Vite
+- Backend: FastAPI
+- Validation and models: Pydantic
+- Database: Supabase PostgreSQL, optional
+- Database access: Supabase REST API through `httpx`
+- Testing: Pytest
+- Deployment: Vercel for frontend and Render for backend
+
+## Application Flow
+
+```text
+Administrator enters configuration
+              ↓
+React sends configuration to FastAPI
+              ↓
+FastAPI validates the input
+              ↓
+Solver generates a timetable
+              ↓
+Independent verifier checks the result
+              ↓
+React displays the timetable
+              ↓
+Optional: result is saved in Supabase
 ```
+
+## Inputs
+
+The administrator provides:
+
+- Working days.
+- Periods and their timings.
+- Break or lunch periods.
+- Divisions.
+- Subjects.
+- Weekly workload for each subject.
+- Whether a subject is theory or practical.
+- Teachers and the subjects they can teach.
+- Number of classrooms.
+- Number of laboratories.
+
+### Workload assumption
+
+The workload is provided by the administrator. The system does not calculate workload from semester duration or credits.
+
+In v0.1, the configured subject workload is applied to every division. Per-division subject lists and workloads are planned for a future version.
+
+### Teacher assignment assumption
+
+The system does not automatically assign a second teacher because more teachers are available than subjects. Teacher-subject relationships are provided explicitly. Different divisions may use different qualified teachers for the same subject.
+
+## Hard Constraints
+
+The generator is designed to enforce the following constraints:
+
+| Constraint | Validation |
+|---|---|
+| One class per division per period | Solver, verifier, and database uniqueness rules |
+| One class per teacher per period | Solver, verifier, and database uniqueness rules |
+| One class per room per period | Solver, verifier, and database uniqueness rules |
+| Laboratory subjects use laboratories | Solver and verifier |
+| Theory subjects use classrooms | Solver and verifier |
+| Every subject receives its configured workload | Solver and verifier |
+| Break slots cannot contain classes | Solver and verifier |
+| Lab blocks use consecutive periods | Solver and verifier |
+
+## Scheduling Approach
+
+The scheduler works with complete class sessions. Each session contains:
+
+```text
+Division + Subject + Teacher + Room + Day + Period
+```
+
+Before placing a session, the application checks whether:
+
+- The division is free.
+- The teacher is free.
+- The room is free.
+- The room type is suitable.
+- The selected slot is not a break.
+- The subject still has remaining workload.
+
+The solver uses:
+
+1. Input prechecks for obviously impossible configurations.
+2. Most-constrained-first ordering for scarce subjects, teachers, and rooms.
+3. Forward checking after every placement.
+4. Backtracking and retries when a placement creates a dead end.
+5. An independent verifier that checks the completed timetable from scratch.
+
+If a valid timetable cannot be created, the API returns an `infeasible` result with an explanation instead of returning a timetable containing conflicts.
+
+## Impossible Input Handling
+
+The application reports useful errors for cases such as:
+
+- A division requires more periods than are available in the week.
+- A subject has no eligible teacher.
+- A teacher has insufficient capacity.
+- There are not enough laboratories for required lab sessions.
+- A lab subject has no available laboratory.
+- The required workload cannot fit around breaks.
+- A room or teacher is overbooked.
+
+The API uses these result statuses:
+
+```text
+ok          Timetable generated and verified
+invalid     Input is incomplete or invalid
+infeasible  Input is valid, but no conflict-free timetable was found
+```
+
+## Project Structure
+
+```text
 backend/
   app/
-    main.py        FastAPI routes
-    models.py      request/response models (Pydantic)
-    validator.py   input checks, teacher assignment, feasibility prechecks
-    solver.py      constraint solver
-    verifier.py    independent rule checker
-    service.py     validate -> solve -> verify
-    db.py          Supabase persistence (REST API via httpx)
-    config.py      settings from .env
-  samples/sample_input.json
-  tests/test_timetable.py
+    main.py          FastAPI routes
+    models.py        Request and response models
+    validator.py     Input validation and feasibility checks
+    solver.py        Timetable generation logic
+    verifier.py      Independent timetable verification
+    service.py       Validate → solve → verify workflow
+    db.py            Optional Supabase persistence
+    config.py        Environment configuration
+  samples/
+    sample_input.json
+  tests/
+    test_timetable.py
+
 frontend/
-  src/App.jsx, src/components/SetupForm.jsx, TimetableView.jsx, src/lib/form.js, src/api.js, src/styles.css
-supabase/schema.sql   database tables, constraints, RLS
-render.yaml           backend deployment (Render Blueprint)
-APPROACH.md           approach, assumptions, architecture, trade-offs, validation
+  src/
+    App.jsx
+    components/
+      SetupForm.jsx
+      TimetableView.jsx
+    lib/
+      form.js
+    api.js
+    styles.css
+
+supabase/
+  schema.sql
+
+render.yaml
+APPROACH.md
+VALIDATION.md
+AI_USAGE_REPORT.md
 ```
 
-## Run locally
+## Run Locally Without Supabase
 
-### 1. Supabase (database)
-
-1. Create a free project at supabase.com. Pick the region closest to your users (e.g. Mumbai).
-2. Dashboard → **SQL Editor** → **New query** → paste all of `supabase/schema.sql` → **Run**.
-3. Dashboard → **Project Settings → API Keys**. Copy:
-   - the **Project URL** (`https://xxxx.supabase.co`, also under Project Settings → Data API)
-   - a **secret key** (`sb_secret_...`). The legacy **service_role** key (`eyJ...`) also works.
-
-Saving is optional. Without Supabase the app still generates timetables; the
-"Save" controls are simply hidden.
-
-### 2. Backend
+### Backend
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/bin/activate
+
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+
 pip install -r requirements.txt
-cp .env.example .env               # then paste your Supabase URL and key
-uvicorn app.main:app --reload      # http://127.0.0.1:8000  (API docs at /docs)
-pytest -q                          # 16 tests
+uvicorn app.main:app --reload
 ```
 
-Check it at http://127.0.0.1:8000/api/health. `"storage": "supabase"` means the database is connected.
+The backend runs at:
 
-### 3. Frontend
+```text
+http://127.0.0.1:8000
+```
+
+API documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Health check:
+
+```text
+http://127.0.0.1:8000/api/health
+```
+
+Without Supabase, the health response should show storage as `off`.
+
+### Frontend
+
+Open another terminal:
 
 ```bash
 cd frontend
 npm install
-npm run dev                        # http://localhost:5173
+npm run dev
 ```
 
-In development, Vite forwards `/api` to the backend on port 8000.
+The frontend normally runs at:
 
-## Deploy (free): Supabase + Render + Vercel
+```text
+http://localhost:5173
+```
 
-Do the Supabase steps above first. Then:
+## Run Tests
 
-### A. Push to GitHub
+From the backend directory:
 
 ```bash
-git init && git add . && git commit -m "Timetable generator v0.1"
-# Create an empty repo on github.com, then:
-git remote add origin https://github.com/<you>/timetable-generator.git
-git branch -M main && git push -u origin main
+pytest -q
 ```
 
-`.gitignore` already keeps `.env` files out of the repo. **Never commit your secret key.**
+## Optional Supabase Persistence
 
-### B. Backend on Render
+Supabase is optional for timetable generation. It is used only to save and retrieve generated timetable data.
 
-1. render.com → sign in with GitHub → **New → Blueprint** → select the repo.
-   Render reads `render.yaml`: Python 3.11, root `backend/`, and health check `/api/health`.
-2. Fill in the values it asks for:
-   - `SUPABASE_URL`: your project URL
-   - `SUPABASE_SERVICE_ROLE_KEY`: your secret key
-   - `CORS_ORIGINS`: leave empty for now (you'll add the Vercel URL in step D)
-3. **Apply**. When it's live, open `https://<your-service>.onrender.com/api/health`.
-   You should see `{"ok":true,"storage":"supabase"}`.
+### Setup
 
-### C. Frontend on Vercel
+1. Create a Supabase project.
+2. Open the Supabase SQL Editor.
+3. Run the complete contents of `supabase/schema.sql`.
+4. Copy the Supabase project URL.
+5. Create a backend-only secret key or use the legacy service-role key.
+6. Copy the environment template:
 
-1. vercel.com → **Add New → Project** → import the repo.
-2. **Root Directory:** `frontend`. The framework (Vite) is detected automatically.
-3. **Environment Variables:** `VITE_API_URL` = `https://<your-service>.onrender.com` (no trailing slash).
-4. **Deploy**. You get a URL like `https://timetable-generator.vercel.app`.
+```bash
+cd backend
+cp .env.example .env
+```
 
-### D. Connect them
+7. Add the values to `backend/.env`:
 
-1. Render → your service → **Environment** → set `CORS_ORIGINS` to your Vercel URL
-   (e.g. `https://timetable-generator.vercel.app`) → **Save**. Render redeploys.
-2. If your Vercel project isn't named `timetable-generator`, change `CORS_ORIGIN_REGEX`
-   the same way, or delete it.
-3. Open the Vercel URL → **Try an example** → **Generate timetable** → **Save**.
-   Check that the rows appear in Supabase → **Table Editor → timetables**.
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-backend-only-key
+CORS_ORIGINS=http://localhost:5173
+```
 
-### Troubleshooting
+8. Restart the backend.
 
-| Symptom | Fix |
-|---|---|
-| "Can't reach the server" / CORS error in the browser console | `CORS_ORIGINS` on Render must exactly match the Vercel URL: `https`, no trailing slash. |
-| First load is slow | Render's free plan sleeps after inactivity; the first request wakes it (up to about a minute). Open the site yourself before a demo. |
-| Save fails with 401 "Invalid API key" | Some new projects have had trouble with `sb_secret_` keys. Use the legacy `service_role` key instead (API Keys → Legacy tab). |
-| Save fails with 404 / "relation does not exist" | `schema.sql` wasn't run in this Supabase project. |
-| Supabase project paused | Free projects pause after about a week without activity. Restore it from the dashboard. |
-| Vercel still calls the old API URL | `VITE_` variables are baked in at build time. Redeploy after changing them. |
+The health endpoint should then report:
 
-## API
+```json
+{"ok": true, "storage": "supabase"}
+```
 
-| Method | Path | Purpose |
+### Security
+
+The Supabase secret or service-role key is backend-only. Never place it in frontend code, commit it to GitHub, or include it in the submission email.
+
+The `.env` file must be included in `.gitignore`.
+
+This prototype has no login system. Anyone who can access the backend can use the available API operations. Authentication and role-based access are planned for a future production version.
+
+## API Endpoints
+
+| Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/api/health` | `{ ok, storage: "supabase" \| "off" }` |
-| GET | `/api/sample` | example input (4 divisions, 9 subjects incl. 3 labs) |
-| POST | `/api/validate` | prechecks only |
-| POST | `/api/generate?save=true` | generate (and save if Supabase is configured) |
-| GET / POST | `/api/timetables` | list / save |
-| GET / DELETE | `/api/timetables/{id}` | open / delete |
+| GET | `/api/health` | Check backend and storage status |
+| GET | `/api/sample` | Return example input |
+| POST | `/api/validate` | Validate input without generating |
+| POST | `/api/generate?save=true` | Generate and optionally save a timetable |
+| GET | `/api/timetables` | List saved timetables |
+| POST | `/api/timetables` | Save a timetable |
+| GET | `/api/timetables/{id}` | Open a saved timetable |
+| DELETE | `/api/timetables/{id}` | Delete a saved timetable |
 
-`status` in the result is `ok`, `invalid` (input can't work, see `errors`) or
-`infeasible` (passes the prechecks but no clash-free arrangement exists).
+## Validation
 
-## Security note
+The following cases were tested:
 
-The service_role key bypasses Row Level Security, so it lives only in
-`backend/.env` and never goes to the browser. RLS is enabled with no public
-policies, so the tables can't be read with the public anon key. There is no
-login in v0.1: anyone who can reach the backend can generate, save and delete.
-Add Supabase Auth before deploying publicly.
+- Valid timetable generation.
+- Division conflict prevention.
+- Teacher conflict prevention.
+- Room conflict prevention.
+- Laboratory room requirement.
+- Theory-room requirement.
+- Break-slot exclusion.
+- Exact subject workload.
+- Missing teacher assignment.
+- No suitable laboratory.
+- Workload greater than available capacity.
+- Infeasible scheduling input.
+- Independent verification of generated output.
 
-## Ideas for v0.2
+Detailed test steps are available in `VALIDATION.md`.
 
-- Lab batches (B1/B2/B3 of a division in different labs at the same time)
-- Teacher unavailable slots and preferred free days
-- Per-division subject lists and workloads in the UI (the API already supports
-  `divisions[].subjects`)
-- Manual drag-and-drop edits, re-verified on drop
-- Excel/PDF export
+## AI Usage
+
+AI-assisted development was used during the project. AI helped with project scaffolding, implementation suggestions, debugging, and test-case suggestions.
+
+The generated output was reviewed and tested manually. An incorrect automatic second-teacher rule was identified during testing and removed because the number of available teachers should not automatically determine how many teachers teach a subject.
+
+Full details are available in `AI_USAGE_REPORT.md`.
+
+## Design Documents
+
+- `APPROACH.md` — product decisions, architecture, assumptions, and trade-offs.
+- `VALIDATION.md` — validation steps and edge cases.
+- `AI_USAGE_REPORT.md` — AI tools, prompts, generated code, corrections, and validation.
+
+## Future Improvements
+
+- Authentication and role-based access.
+- Per-division subject workloads.
+- Teacher unavailable slots and preferences.
+- Manual timetable editing with re-verification.
+- Lab batches.
+- Excel and PDF export.
+- Better optimization for balanced daily schedules.
+- PostgreSQL migration for larger multi-user deployments.
+
+## Submission
+
+Candidate: Sayli Patil
+
+Assignment: Assignment 3 — Intelligent Timetable Generator
+
+This repository was prepared for the Edumerge Solutions pre-drive product engineering assignment.
