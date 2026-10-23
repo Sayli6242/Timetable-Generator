@@ -102,6 +102,16 @@ def save_timetable(body: SaveRequest, store: SupabaseStore = Depends(require_sto
         raise HTTPException(502, str(e))
 
 
+@app.put("/api/timetables/{timetable_id}", status_code=200)
+def update_timetable(timetable_id: UUID, body: SaveRequest, store: SupabaseStore = Depends(require_store)):
+    if body.result.status != "ok":
+        raise HTTPException(400, "Only a successfully generated timetable can be saved.")
+    try:
+        return store.update(str(timetable_id), body.input, body.result)
+    except StorageError as e:
+        raise HTTPException(502, str(e))
+
+
 @app.get("/api/timetables/{timetable_id}")
 def get_timetable(timetable_id: UUID, store: SupabaseStore = Depends(require_store)):
     try:

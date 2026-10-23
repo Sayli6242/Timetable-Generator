@@ -63,6 +63,30 @@ class SupabaseStore:
                 raise
         return self._summary(created)
 
+    def update(self, timetable_id: str, inp: TimetableInput, result: GenerateResult) -> dict:
+        row = {
+            "name": inp.name,
+            "status": result.status,
+            "input": inp.model_dump(mode="json"),
+            "result": result.model_dump(mode="json"),
+        }
+        updated = self._req(
+            "PATCH", f"timetables?id=eq.{timetable_id}", json=row,
+            headers={"Prefer": "return=representation"},
+        )
+        if not updated:
+            raise StorageError("Timetable not found.")
+        # Replace entries: delete old ones, insert new ones.
+        self._req("DELETE", f"timetable_entries?timetable_id=eq.{timetable_id}")
+        if result.entries:
+            entries = [
+                {"timetable_id": timetable_id, **e.model_dump(mode="json")}
+                for e in result.entries
+            ]
+            self._req("POST", "timetable_entries", json=entries,
+                      headers={"Prefer": "return=minimal"})
+        return self._summary(updated[0])
+
     def delete(self, timetable_id: str) -> None:
         # timetable_entries rows go with it (ON DELETE CASCADE).
         self._req("DELETE", f"timetables?id=eq.{timetable_id}")

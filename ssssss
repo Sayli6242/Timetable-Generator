@@ -1,0 +1,29 @@
+[1mdiff --git a/backend/app/config.py b/backend/app/config.py[m
+[1mindex f241f13..802caec 100644[m
+[1m--- a/backend/app/config.py[m
+[1m+++ b/backend/app/config.py[m
+[36m@@ -20,11 +20,14 @@[m [mclass Settings(BaseSettings):[m
+     def supabase_enabled(self) -> bool:[m
+         return bool(self.supabase_url and self.supabase_service_role_key)[m
+ [m
+[32m+[m
+[32m+[m
+     @property[m
+     def cors_origin_list(self) -> list[str]:[m
+         return [o.strip() for o in self.cors_origins.split(",") if o.strip()][m
+ [m
+ [m
+[32m+[m
+ @lru_cache[m
+ def get_settings() -> Settings:[m
+     return Settings()[m
+[1mdiff --git a/frontend/.env.example b/frontend/.env.example[m
+[1mindex 371e0de..dbba9ba 100644[m
+[1m--- a/frontend/.env.example[m
+[1m+++ b/frontend/.env.example[m
+[36m@@ -1,3 +1,3 @@[m
+ # Leave empty in development (Vite forwards /api to http://127.0.0.1:8000).[m
+ # In production, set it to your deployed FastAPI URL, e.g. https://timetable-api.example.com[m
+[31m-VITE_API_URL=[m
+[32m+[m[32mVITE_API_URL=https://timetable-generator-y5vg.onrender.com[m
+\ No newline at end of file[m

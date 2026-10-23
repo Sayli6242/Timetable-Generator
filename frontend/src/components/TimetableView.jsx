@@ -58,28 +58,166 @@ function Grid({ input, entries, kind }) {
   );
 }
 
-export default function TimetableView({ input, result, onSave, saving, saved, storageOn }) {
+// ---- Stats bar above the timetable ------------------------------------------
+function StatsBar({ input, entries }) {
+  const totalSlots = input.working_days.length * input.periods_per_day * input.divisions.length;
+  const uniqueSlots = new Set(entries.map((e) => `${e.division}|${e.day}|${e.period}`)).size;
+  const freePct = totalSlots > 0 ? Math.round(((totalSlots - uniqueSlots) / totalSlots) * 100) : 0;
+  const uniqueTeachers = new Set(entries.map((e) => e.teacher)).size;
+  return (
+    <div className="stats-bar no-print">
+      <div className="stat-item">
+        <span className="stat-val">{uniqueSlots}</span>
+        <span className="stat-label">Scheduled</span>
+      </div>
+      <div className="stat-divider" />
+      <div className="stat-item">
+        <span className="stat-val">{input.divisions.length}</span>
+        <span className="stat-label">Divisions</span>
+      </div>
+      <div className="stat-divider" />
+      <div className="stat-item">
+        <span className="stat-val">{uniqueTeachers}</span>
+        <span className="stat-label">Teachers</span>
+      </div>
+      <div className="stat-divider" />
+      <div className="stat-item">
+        <span className="stat-val">{freePct}%</span>
+        <span className="stat-label">Free periods</span>
+      </div>
+    </div>
+  );
+}
+
+const KIND_LABELS = [
+  ["division", "Divisions"],
+  ["teacher", "Teachers"],
+  ["room", "Rooms"],
+];
+
+// ---- Renders all grids for PDF print ----------------------------------------
+function PrintAll({ input, result, title, itemsByKind }) {
+  return (
+    <div className="print-only">
+      <div className="print-doc-title">{title}</div>
+      <div className="print-meta">
+        {input.working_days.length} days/week · {input.periods_per_day} periods/day · {input.divisions.length} division{input.divisions.length !== 1 ? "s" : ""}
+      </div>
+      {KIND_LABELS.map(([kind, kindLabel]) =>
+        itemsByKind[kind].map((item, idx) => (
+          <div key={`${kind}|${item}`} className="print-page">
+            <div className="print-section-label">{kindLabel}</div>
+            <h2 className="print-item-title">{item}</h2>
+            <Grid
+              input={input}
+              entries={result.entries.filter((e) => e[kind] === item)}
+              kind={kind}
+            />
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+export default function TimetableView({ input, result, onSave, saving, saved, storageOn, onRename }) {
   const teachers = useMemo(() => [...new Set(result.entries.map((e) => e.teacher))].sort(), [result]);
+
+  const [title, setTitle] = useState(input.name ?? "");
+  const [editingTitle, setEditingTitle] = useState(false);
+
+  const commitTitle = (val) => {
+    const trimmed = val.trim() || "Untitled Timetable";
+    setTitle(trimmed);
+    setEditingTitle(false);
+    onRename?.(trimmed);
+  };
+
+  const itemsByKind = useMemo(() => ({
+    division: input.divisions.map((d) => d.name),
+    teacher: teachers,
+    room: input.rooms.map((r) => r.name),
+  }), [input, teachers]);
+
+  const [activeKind, setActiveKind] = useState("division");
   const [pick, setPick] = useState(`division|${input.divisions[0].name}`);
+
+  const switchKind = (k) => {
+    setActiveKind(k);
+    const first = itemsByKind[k][0];
+    if (first) setPick(`${k}|${first}`);
+  };
+
   const [kind, name] = pick.split("|");
   const entries = result.entries.filter((e) => e[kind] === name);
 
   return (
     <section className="card">
-      <div className="result-bar no-print">
-        <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Show timetable for">
-          <optgroup label="Divisions">{input.divisions.map((d) => <option key={d.name} value={`division|${d.name}`}>{d.name}</option>)}</optgroup>
-          <optgroup label="Teachers">{teachers.map((t) => <option key={t} value={`teacher|${t}`}>{t}</option>)}</optgroup>
-          <optgroup label="Rooms">{input.rooms.map((r) => <option key={r.name} value={`room|${r.name}`}>{r.name}</option>)}</optgroup>
-        </select>
-        <div className="spacer" />
-        <button className="ghost" onClick={() => window.print()}>Download PDF</button>
-        {storageOn && (saved
-          ? <span className="saved">✓ Saved</span>
-          : <button className="primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save"}</button>)}
+      {/* ---- Timetable identity header ---- */}
+      <div className="result-header no-print">
+        {editingTitle ? (
+          <input
+            className="result-name-input"
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={(e) => commitTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitTitle(e.target.value);
+              if (e.key === "Escape") { setTitle(input.name ?? ""); setEditingTitle(false); }
+            }}
+          />
+        ) : (
+          <h2 className="result-name editable-title" onClick={() => setEditingTitle(true)} title="Click to rename">
+            {title || "Untitled Timetable"}
+            <span className="edit-pencil" aria-hidden="true">✏</span>
+          </h2>
+        )}
+        <p className="result-meta">
+          {input.working_days.length} days/week · {input.periods_per_day} periods/day · {input.divisions.length} division{input.divisions.length !== 1 ? "s" : ""}
+        </p>
       </div>
-      <h2 className="tt-title">{name}</h2>
-      <Grid input={input} entries={entries} kind={kind} />
+
+      {/* ---- View selector: group tabs + item chips ---- */}
+      <div className="result-top no-print">
+        <div className="result-top-row1">
+          <div className="view-kind-tabs">
+            {KIND_LABELS.map(([k, label]) => (
+              <button key={k} type="button"
+                className={`view-kind-tab ${activeKind === k ? "active" : ""}`}
+                onClick={() => switchKind(k)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="view-actions">
+            <button className="ghost" onClick={() => window.print()}>Download PDF</button>
+            {storageOn && (saved
+              ? <span className="saved">✓ Saved</span>
+              : <button className="primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save"}</button>)}
+          </div>
+        </div>
+        <div className="view-item-chips">
+          {itemsByKind[activeKind].map((item) => (
+            <button key={item} type="button"
+              className={`chip small ${name === item && kind === activeKind ? "on" : ""}`}
+              onClick={() => setPick(`${activeKind}|${item}`)}>
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ---- Stats bar ---- */}
+      <StatsBar input={input} entries={result.entries} />
+
+      <h2 className="tt-title no-print">{name}</h2>
+      <div className="no-print">
+        <Grid input={input} entries={entries} kind={kind} />
+      </div>
+
+      {/* ---- All grids: only visible when printing ---- */}
+      <PrintAll input={input} result={result} title={title} itemsByKind={itemsByKind} />
     </section>
   );
 }

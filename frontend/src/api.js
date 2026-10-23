@@ -37,6 +37,8 @@ export const api = {
     request(`/api/generate${save ? "?save=true" : ""}`, { method: "POST", body: JSON.stringify(input) }),
   save: (input, result) =>
     request("/api/timetables", { method: "POST", body: JSON.stringify({ input, result }) }),
+  update: (id, input, result) =>
+    request(`/api/timetables/${id}`, { method: "PUT", body: JSON.stringify({ input, result }) }),
   list: () => request("/api/timetables"),
   get: (id) => request(`/api/timetables/${id}`),
   remove: (id) => request(`/api/timetables/${id}`, { method: "DELETE" }),
