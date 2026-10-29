@@ -30,9 +30,9 @@ const ChevronIcon = ({ collapsed }) => (
 );
 
 // ---- Guided mode hint -------------------------------------------------------
-function GuideHint({ children }) {
+function GuideHint({ children, variant }) {
   return (
-    <div className="guide-hint">
+    <div className={`guide-hint${variant ? ` guide-hint--${variant}` : ""}`}>
       <span className="guide-hint-icon" aria-hidden="true">💡</span>
       <div className="guide-hint-body">{children}</div>
     </div>
@@ -410,7 +410,7 @@ export default function SetupForm({ form, setField, counts, setCount, onGenerate
 
             <div className="form-grid-3" style={{ marginTop: 20 }}>
               <div className="field-group">
-                <div className="field-label">Periods per day <HelpTip text="How many lessons fit in one school day — e.g. 6 means 6 back-to-back lessons (excluding breaks)." /></div>
+                <div className="field-label">per day <HelpTip text="How many lessons fit in one school day — e.g. 6 means 6 back-to-back lessons (excluding breaks)." /></div>
                 <Stepper value={form.periods_per_day} min={1} label="Periods per day"
                   onChange={(v) => { touch("week"); setField("periods_per_day", v); }} />
               </div>
@@ -549,7 +549,8 @@ export default function SetupForm({ form, setField, counts, setCount, onGenerate
             count={counts.teachers} setCount={(v) => { touch("teachers"); setCount("teachers", v); }}
             ok={!teacherErrs.length} touched={touched.has("teachers")}
             collapsed={collapsed.teachers} onToggle={() => toggle("teachers")}>
-            <p className="hint top">For each teacher, click the subject chips to show which subjects they teach. <b>Every subject must have at least one teacher assigned</b> — unassigned subjects will block generation.</p>
+            <p className="hint top">For each teacher, click the subject chips to show which subjects they teach.
+              <b>Every subject must have at least one teacher assigned</b> — unassigned subjects will block generation.</p>
             <div className="rows">
               {form.teachers.map((t) => (
                 <div className="row-teacher" key={t.id}>
@@ -572,7 +573,7 @@ export default function SetupForm({ form, setField, counts, setCount, onGenerate
               ))}
             </div>
             {guidedMode && (
-              <GuideHint>
+              <GuideHint variant="teacher">
                 <b>Teachers:</b> 5 teachers are pre-assigned to subjects. Click a coloured chip to assign or unassign a subject.
                 Every subject must have at least one teacher — the generator will flag any that are missing.
               </GuideHint>

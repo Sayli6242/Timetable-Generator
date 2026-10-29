@@ -70,6 +70,7 @@ export function toPayload(form) {
     day_start: form.day_start || null,
     day_end: form.day_end || null,
     break_after_periods: (form.breaks || []).map((b) => Number(b.after)).filter(Boolean),
+    breaks: (form.breaks || []).filter((b) => Number(b.after) > 0).map((b) => ({ after: Number(b.after), start: b.start, end: b.end })),
     subjects: form.subjects.map((s) => {
       const isMixed = s.type === "THEORY_AND_LAB";
       return {
@@ -111,7 +112,23 @@ export function fromPayload(p) {
     periods_per_day: p.periods_per_day,
     day_start: p.day_start ?? "08:00",
     day_end: p.day_end ?? "17:00",
-    breaks: (p.break_after_periods ?? []).map((after) => ({ after, start: "10:30", end: "11:00" })),
+    breaks: p.breaks?.length
+      ? p.breaks.map((b) => ({ after: b.after, start: b.start ?? "10:30", end: b.end ?? "11:00" }))
+      : (() => {
+          const afters = [...(p.break_after_periods ?? [])].sort((a, b) => a - b);
+          if (!afters.length) return [];
+          const dayStart = toMin(p.day_start ?? "08:00");
+          const dayEnd   = toMin(p.day_end   ?? "17:00");
+          const P        = Number(p.periods_per_day) || 1;
+          const defDur   = 30;
+          const D        = (dayEnd - dayStart - afters.length * defDur) / P;
+          let prior = 0;
+          return afters.map((after) => {
+            const s = dayStart + after * D + prior;
+            prior += defDur;
+            return { after, start: fmtMin(s), end: fmtMin(s + defDur) };
+          });
+        })(),
     subjects,
     teachers: p.teachers.map((t) => ({
       id: uid(), name: t.name,
