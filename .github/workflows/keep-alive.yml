@@ -1,15 +1,19 @@
-name: Keep Render Alive
 
-on:
-  schedule:
-    - cron: "*/10 * * * *"
-  workflow_dispatch:
+  name: Supabase Keep-Alive
 
-jobs:
-  ping:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Ping backend
-        run: |
-          curl -fsS --retry 3 --retry-delay 20 --max-time 90 \
-            https://timetable-generator-y5vg.onrender.com/api/health
+  on:
+    schedule:
+      - cron: '0 9 */3 * *'   # every 3 days at 9:00 AM UTC
+    workflow_dispatch:         # allow manual trigger from GitHub UI
+
+  jobs:
+    ping:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Ping Supabase DB
+          run: |
+            curl -s \
+              "${{ secrets.SUPABASE_URL }}/rest/v1/timetables?limit=1" \
+              -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -o /dev/null -w "HTTP %{http_code}\n"
