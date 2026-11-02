@@ -2,7 +2,7 @@ name: Render Keep-Alive
 
   on:
     schedule:
-      - cron: '0 */20 * * *'  # every 20 minutes
+      - cron: '0 */20 * * *'
     workflow_dispatch:
 
   jobs:
@@ -12,4 +12,3 @@ name: Render Keep-Alive
         - name: Ping Render service
           run: |
             curl -s "${{ secrets.RENDER_URL }}" -o /dev/null -w "HTTP %{http_code}\n"
-
