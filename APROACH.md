@@ -1,12 +1,8 @@
-# Approach Note
 
 ## Project Name
 
 College Timetable Generator
 
-## Assignment
-
-Assignment 3 — Intelligent Timetable Generator
 
 ## 1. Problem Understanding
 
