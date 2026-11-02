@@ -1,4 +1,4 @@
-# College Timetable Generator (v0.1)
+# College Timetable Generator
 
 A constraint-aware college timetable generator built with React, FastAPI, and optional Supabase/Postgres persistence.
 
@@ -25,11 +25,11 @@ The application can generate timetables without Supabase. When Supabase is confi
 - Validate impossible or incomplete input.
 - Save and retrieve generated timetables when Supabase is configured.
 
-## Scope of v0.1
+## Current Scope
 
-This prototype focuses on weekly timetable generation and hard-constraint validation.
+The application focuses on weekly timetable generation and hard-constraint validation.
 
-The following are outside the scope of v0.1:
+The following are planned for future versions:
 
 - Authentication and user management.
 - Teacher unavailable-slot preferences.
@@ -37,8 +37,6 @@ The following are outside the scope of v0.1:
 - Lab batches such as B1/B2/B3.
 - Excel or PDF export.
 - Advanced timetable optimization.
-
-These can be added in a future version.
 
 ## Technology Stack
 
@@ -87,7 +85,7 @@ The administrator provides:
 
 The workload is provided by the administrator. The system does not calculate workload from semester duration or credits.
 
-In v0.1, the configured subject workload is applied to every division. Per-division subject lists and workloads are planned for a future version.
+The configured subject workload is applied to every division. Per-division subject lists and workloads are planned for a future version.
 
 ### Teacher assignment assumption
 
@@ -190,7 +188,6 @@ supabase/
 render.yaml
 APPROACH.md
 VALIDATION.md
-AI_USAGE_REPORT.md
 ```
 
 ## Run Locally Without Supabase
@@ -289,7 +286,7 @@ The health endpoint should then report:
 
 ### Security
 
-The Supabase secret or service-role key is backend-only. Never place it in frontend code, commit it to GitHub, or include it in the submission email.
+The Supabase secret or service-role key is backend-only. Never place it in frontend code or commit it to GitHub.
 
 The `.env` file must be included in `.gitignore`.
 
@@ -328,19 +325,10 @@ The following cases were tested:
 
 Detailed test steps are available in `VALIDATION.md`.
 
-## AI Usage
-
-AI-assisted development was used during the project. AI helped with project scaffolding, implementation suggestions, debugging, and test-case suggestions.
-
-The generated output was reviewed and tested manually. An incorrect automatic second-teacher rule was identified during testing and removed because the number of available teachers should not automatically determine how many teachers teach a subject.
-
-Full details are available in `AI_USAGE_REPORT.md`.
-
 ## Design Documents
 
 - `APPROACH.md` — product decisions, architecture, assumptions, and trade-offs.
 - `VALIDATION.md` — validation steps and edge cases.
-- `AI_USAGE_REPORT.md` — AI tools, prompts, generated code, corrections, and validation.
 
 ## Future Improvements
 
@@ -353,10 +341,3 @@ Full details are available in `AI_USAGE_REPORT.md`.
 - Better optimization for balanced daily schedules.
 - PostgreSQL migration for larger multi-user deployments.
 
-## Submission
-
-Candidate: Sayli Patil
-
-Assignment: Assignment 3 — Intelligent Timetable Generator
-
-This repository was prepared for the Edumerge Solutions pre-drive product engineering assignment.
